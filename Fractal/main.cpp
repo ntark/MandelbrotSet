@@ -6,6 +6,8 @@
 #include <vector>
 #include <complex>
 #include <thread>
+#include <fstream>
+#include <sstream>
 
 static const int target_fps = 60;
 //static const int window_w_init = 1280;
@@ -13,7 +15,7 @@ static const int target_fps = 60;
 static const int window_w_init = 300;
 static const int window_h_init = 300;
 static const char window_name[] = "windoww";
-static const int Kernel_Option_Num = 5;
+static const int Kernel_Option_Num = 6;
 
 static const double ZoomFactor = 0.7;
 
@@ -24,103 +26,6 @@ float powA = 2.0f;
 int colorDiv = 8;
 int GL_precision = 32;
 
-std::chrono::steady_clock::time_point empt;
-std::chrono::steady_clock::time_point tmr;
-cl::CommandQueue queue;
-const std::string kernelSource = R"(
-    __kernel void mandelSet(__global const double* input_X,
-                            __global const double* input_Y,
-                            __global const int* options,
-							__global const double* mouseCords,
-							__global uchar* output
-							)
-    {
-        int indx = get_global_id(0);
-
-		int maxIter = options[0];
-		int size_X = options[1];
-		int colorDiv = options[2];
-		int juliaMode = options[3];
-		int textureMode = options[4];
-
-        int indx_X = indx % size_X;
-        int indx_Y = indx / size_X;
-
-        int i = maxIter;
-
-		double x;
-		double y;
-		double nx;
-		double cx;
-		double cy;
-		
-		if(juliaMode){
-			x = input_X[indx_X];
-			y = input_Y[indx_Y];
-			nx = 0.0;
-			cx = mouseCords[0];
-			cy = mouseCords[1];
-		} else {
-			x = 0.0;
-			y = 0.0;
-			nx = 0.0;
-			cx = input_X[indx_X];
-			cy = input_Y[indx_Y];
-		}
-		if(textureMode == 1) { // mandel set
-			while(i-- && (x*x + y*y) <= 5) {
-				nx = (x * x - y * y) + cx;
-				y = (2.0 * x * y) + cy;
-				x = nx;
-			}
-		} else if (textureMode == 2) { // burning ship
-			while(i-- && (x*x + y*y) <= 5) {
-				nx = (x * x - y * y) + cx;
-				y = fabs(2.0 * x * y) + cy;
-				x = nx;
-			}
-		}
-
-		i = maxIter - i;
-		int iNorm = 0;
-		if (i > maxIter) {
-			output[4 * indx] = 0;
-			output[4 * indx + 1] = 0;
-			output[4 * indx + 2] = 0;
-		} else {
-			int scaledI = i * colorDiv;
-			iNorm = (int)scaledI % 511;
-			iNorm = iNorm <= 255 ? iNorm : 511 - iNorm;
-			output[4 * indx + 0] = iNorm;
-			output[4 * indx + 1] = 255 - iNorm;
-			output[4 * indx + 2] = 255;			
-		}
-		output[4 * indx + 3] = 255;
-    }
-)";
-void timer(std::string p = "") {
-	std::chrono::steady_clock::time_point tmp = std::chrono::steady_clock::now();
-	if ((tmr != empt) && (p != "")) {
-		std::cout << p << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(tmp - tmr).count() / 1000.0 << "[ms]" << std::endl; // µ
-	}
-	tmr = tmp;
-}
-struct complx {
-	double x;
-	double y;
-};
-
-//mandel
-#define dnx (x * x - y * y)
-#define dny (2.0 * x * y)
-
-//adjustable mandel
-//#define dnx (x * x - y * y)
-//#define dny (powA * x * y)
-
-//burning ship
-//#define dnx (x * x - y * y)
-//#define dny (fabs(2.0 * x * y))
 int textureMode = 1; // 1 - mandel , 2 - ship
 int juliaMode = 0; // 0 - default , 1 - julia
 double GmouseX = 0.0;
@@ -134,6 +39,34 @@ cl::Buffer bufferInput_MouseCords;
 cl::Buffer bufferOutput;
 cl::Device device;
 cl::Context context;
+
+std::chrono::steady_clock::time_point empt;
+std::chrono::steady_clock::time_point tmr;
+cl::CommandQueue queue;
+std::string kernelSourceFromFile = "";
+void timer(std::string p = "") {
+	std::chrono::steady_clock::time_point tmp = std::chrono::steady_clock::now();
+	if ((tmr != empt) && (p != "")) {
+		std::cout << p << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(tmp - tmr).count() / 1000.0 << "[ms]" << std::endl; // µ
+	}
+	tmr = tmp;
+}
+//adjustable mandel
+//#define dnx (x * x - y * y)
+//#define dny (powA * x * y)
+std::string readFileToString(const std::string& filePath) {
+	std::ifstream file(filePath);
+	std::stringstream buffer;
+
+	if (file) {
+		buffer << file.rdbuf();
+		file.close();
+	} else {
+		std::cout << "Failed to open the file: " << filePath << std::endl;
+	}
+
+	return buffer.str();
+}
 void OpenCL_Buffer_Setup() {
 	// Create input and output buffers
 	bufferInput_X = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(double) * window_w);
@@ -143,13 +76,16 @@ void OpenCL_Buffer_Setup() {
 	bufferOutput = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof(sf::Uint8) * window_wh * 4);
 
 	// Create a program from the kernel source code
-	cl::Program program(context, kernelSource);
+	//cl::Program program(context, kernelSource);
+	//if (kernelSourceFromFile == "")
+	kernelSourceFromFile = readFileToString("kernel.cl");
 
+	cl::Program program(context, kernelSourceFromFile);
 	// Build the program
 	program.build({ device });
 
 	// Create the kernel
-	kernel = cl::Kernel(program, "mandelSet");
+	kernel = cl::Kernel(program, "fractalSet");
 
 	// Set kernel arguments
 	kernel.setArg(0, bufferInput_X);
@@ -172,9 +108,10 @@ void OpenCL_setup() {
 
 	// Select the first device
 	device = devices[0];
+
 	std::string deviceName;
 	device.getInfo(CL_DEVICE_NAME, &deviceName);
-	std::cout << deviceName << '\n';
+	std::cout << "code running on: " << deviceName << '\n';
 
 	// Create a context
 	context = cl::Context(device);
@@ -195,7 +132,6 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 
 	std::vector<double> input_X(window_w);
 	std::vector<double> input_Y(window_h);
-	std::vector<int> output(window_wh);
 
 	for (int i = 0; i < window_w; ++i) {
 		double x = xmin + (xmax - xmin) * i / (width - 1.0);
@@ -211,6 +147,7 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	Kernel_Options[2] = colorDiv;
 	Kernel_Options[3] = juliaMode;
 	Kernel_Options[4] = textureMode;
+	Kernel_Options[5] = *(int*)&powA;
 
 	double* MouseCords = new double[2];
 	MouseCords[0] = GmouseX;
@@ -222,6 +159,7 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	queue.enqueueWriteBuffer(bufferInput_MouseCords, CL_TRUE, 0, sizeof(double) * 2, MouseCords);
 	queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(window_wh));
 	queue.enqueueReadBuffer(bufferOutput, CL_TRUE, 0, sizeof(sf::Uint8) * window_wh * 4, pixels.data());
+	queue.finish();
 
 	texture.update(pixels.data(), width, height, 0, 0);
 	timer("frame done");
@@ -296,8 +234,8 @@ void fractalExplorer() {
 	sf::Sprite mainSprite;
 	sf::Texture fracTexture;
 
-	double oxmin = -2.4;
-	double oxmax = 1.0;
+	const double oxmin = -2.4;
+	const double oxmax = 1.0;
 	double oyRange = (oxmax - oxmin) * window_h / window_w;
 	double oymin = -oyRange / 2;
 	double oymax = oyRange / 2;
@@ -387,6 +325,14 @@ void fractalExplorer() {
 					textureMode = 1;
 				} else if (event.key.code == sf::Keyboard::Num2) {
 					textureMode = 2;
+				} else if (event.key.code == sf::Keyboard::Num3) {
+					textureMode = 3;
+				} else if (event.key.code == sf::Keyboard::Num4) {
+					textureMode = 4;
+				} else if (event.key.code == sf::Keyboard::Num5) {
+					textureMode = 5;
+				} else if (event.key.code == sf::Keyboard::Num6) {
+					textureMode = 6;
 				}
 				needsReTexute = true;
 				break;
