@@ -13,9 +13,9 @@ static const int target_fps = 60;
 static const int window_w_init = 300;
 static const int window_h_init = 300;
 static const char window_name[] = "windoww";
-static const int Kernel_Option_Num = 10;
+static const int Kernel_Option_Num = 5;
 
-static const double ZoomFactor = 0.5;
+static const double ZoomFactor = 0.7;
 
 static int window_w = window_w_init;
 static int window_h = window_h_init;
@@ -40,38 +40,43 @@ const std::string kernelSource = R"(
 		int maxIter = options[0];
 		int size_X = options[1];
 		int colorDiv = options[2];
-		int textureMode = options[3];
+		int juliaMode = options[3];
+		int textureMode = options[4];
 
-        int indx_X = indx % options[1];
-        int indx_Y = indx / options[1];
+        int indx_X = indx % size_X;
+        int indx_Y = indx / size_X;
 
         int i = maxIter;
-		
-		if(textureMode == 0){
-			double x = 0.0;
-			double y = 0.0;
-			double nx = 0.0;
 
-			double cx = input_X[indx_X];
-			double cy = input_Y[indx_Y];
-        
+		double x;
+		double y;
+		double nx;
+		double cx;
+		double cy;
+		
+		if(juliaMode){
+			x = input_X[indx_X];
+			y = input_Y[indx_Y];
+			nx = 0.0;
+			cx = mouseCords[0];
+			cy = mouseCords[1];
+		} else {
+			x = 0.0;
+			y = 0.0;
+			nx = 0.0;
+			cx = input_X[indx_X];
+			cy = input_Y[indx_Y];
+		}
+		if(textureMode == 1) { // mandel set
 			while(i-- && (x*x + y*y) <= 5) {
 				nx = (x * x - y * y) + cx;
 				y = (2.0 * x * y) + cy;
 				x = nx;
 			}
-
-		} else if (textureMode == 1){
-			double x = input_X[indx_X];
-			double y = input_Y[indx_Y];
-			double nx = 0.0;
-
-			double mouseX = mouseCords[0];
-			double mouseY = mouseCords[1];
-			
-			while (i-- && ((x * x + y * y) <= 5)) {
-				nx = (x * x - y * y) + mouseX;
-				y = (2.0 * x * y) + mouseY;
+		} else if (textureMode == 2) { // burning ship
+			while(i-- && (x*x + y*y) <= 5) {
+				nx = (x * x - y * y) + cx;
+				y = fabs(2.0 * x * y) + cy;
 				x = nx;
 			}
 		}
@@ -116,7 +121,8 @@ struct complx {
 //burning ship
 //#define dnx (x * x - y * y)
 //#define dny (fabs(2.0 * x * y))
-int textureMode = 0; // 0 - mandel, 1 - julia
+int textureMode = 1; // 1 - mandel , 2 - ship
+int juliaMode = 0; // 0 - default , 1 - julia
 double GmouseX = 0.0;
 double GmouseY = 0.0;
 
@@ -199,11 +205,12 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 		double y = ymin + (ymax - ymin) * i / (height - 1.0);
 		input_Y[i] = y;
 	}
-	int* Kernel_Options = new int[4]; // 0: iterations, 1: window_w, 2: colorDiv, 3: julia?
+	int* Kernel_Options = new int[Kernel_Option_Num]; // 0: iterations, 1: window_w, 2: colorDiv, 3: julia?, 4: texuteMode
 	Kernel_Options[0] = iterations;
 	Kernel_Options[1] = window_w;
 	Kernel_Options[2] = colorDiv;
-	Kernel_Options[3] = textureMode;
+	Kernel_Options[3] = juliaMode;
+	Kernel_Options[4] = textureMode;
 
 	double* MouseCords = new double[2];
 	MouseCords[0] = GmouseX;
@@ -326,7 +333,7 @@ void fractalExplorer() {
 					std::cout << "mouse Pressed bruh " << mousePressed << "\n";
 					mousePressed = true;
 				} else if (event.mouseButton.button == sf::Mouse::Right) {
-					textureMode = 0;
+					juliaMode = 0;
 					needsReTexute = true;
 				}
 			case sf::Event::MouseMoved:
@@ -340,7 +347,7 @@ void fractalExplorer() {
 					GmouseY = mouseYpos;
 
 					std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
-					textureMode = 1;
+					juliaMode = 1;
 					needsReTexute = true;
 				}
 				break;
@@ -366,6 +373,7 @@ void fractalExplorer() {
 					ymin = -oyRange / 2;
 					ymax = oyRange / 2;
 					precision = 32;
+					colorDiv = 8;
 					GL_precision = precision;
 				} else if (event.key.code == sf::Keyboard::Key::A) {
 					powA -= 0.25;
@@ -375,6 +383,10 @@ void fractalExplorer() {
 					colorDiv = colorDiv != 1 ? colorDiv / 2 : 1;
 				} else if (event.key.code == sf::Keyboard::Key::X) {
 					colorDiv = colorDiv * 2;
+				} else if (event.key.code == sf::Keyboard::Num1) {
+					textureMode = 1;
+				} else if (event.key.code == sf::Keyboard::Num2) {
+					textureMode = 2;
 				}
 				needsReTexute = true;
 				break;
@@ -386,11 +398,9 @@ void fractalExplorer() {
 				needsReTexute = true;
 				break;
 			}
-			if (needsReTexute) {
-				if (!resized) {
-					fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
-					needsReTexute = false;
-				}
+			if (needsReTexute && !resized) {
+				fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
+				needsReTexute = false;
 			}
 		}
 		zoomBorder.setPosition(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y);
