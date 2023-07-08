@@ -1,0 +1,11 @@
+x64/
+LIBZ/
+.vs/
+Fractal/fonts/
+Fractal/x64/
+Fractal/fraq.cpp
+.gitattributes
+fracOriginal.exe
+Fractal.sln
+sfml*.dll
+*vcxproj*
