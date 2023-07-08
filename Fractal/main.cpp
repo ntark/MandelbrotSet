@@ -86,7 +86,7 @@ const std::string kernelSource = R"(
 			int scaledI = i * colorDiv;
 			iNorm = (int)scaledI % 511;
 			iNorm = iNorm <= 255 ? iNorm : 511 - iNorm;
-			output[4 * indx] = iNorm;
+			output[4 * indx + 0] = iNorm;
 			output[4 * indx + 1] = 255 - iNorm;
 			output[4 * indx + 2] = 255;			
 		}
@@ -116,46 +116,6 @@ struct complx {
 //burning ship
 //#define dnx (x * x - y * y)
 //#define dny (fabs(2.0 * x * y))
-double juliaIter(double cx, double cy, double mouseX, double mouseY, int maxIter) {
-	double i = maxIter;
-	double x = cx;
-	double y = cy;
-	double LpowA = powA;
-	while (i-- && ((x * x + y * y) <= 5)) {
-		double nx = dnx + mouseX;
-		double ny = dny + mouseY;
-		x = nx;
-		y = ny;
-	}
-	return maxIter - i;
-}
-int mandelIter(double cx, double cy, int maxIter) {
-	int i = maxIter;
-	double x = 0.0;
-	double y = 0.0;
-	double nx = 0.0;
-
-	while (i-- && ((x * x + y * y) <= 5)) {
-		nx = dnx + cx;
-		y = dny + cy;
-		x = nx;
-	}
-
-	//std::complex<double> z(x,y);
-	//std::complex<double> cz(cx, cy);
-	//while(i-- && (std::abs(z) <= 4)){
-	//	//z = pow(z, 2) + cz;
-	//	z = pow(std::complex<double>(abs(z.real()), abs(z.imag())), 3) + cz;
-	//}
-
-	//complx c = { cx, cy };
-	//complx z = { 0.0, 0.0 };
-	//while (i-- && ((z.x * z.x + z.y * z.y) <= 4)) {
-	//	mandelSet(&z, &c);
-	//}
-
-	return maxIter - i;
-}
 int textureMode = 0; // 0 - mandel, 1 - julia
 double GmouseX = 0.0;
 double GmouseY = 0.0;
@@ -174,7 +134,6 @@ void OpenCL_Buffer_Setup() {
 	bufferInput_Y = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(double) * window_h);
 	bufferInput_Options = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(int) * Kernel_Option_Num);
 	bufferInput_MouseCords = cl::Buffer(context, CL_MEM_READ_ONLY, sizeof(double) * 2);
-	//bufferOutput = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof(int) * window_wh);
 	bufferOutput = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof(sf::Uint8) * window_wh * 4);
 
 	// Create a program from the kernel source code
@@ -255,133 +214,17 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	queue.enqueueWriteBuffer(bufferInput_Options, CL_TRUE, 0, sizeof(int) * Kernel_Option_Num, Kernel_Options);
 	queue.enqueueWriteBuffer(bufferInput_MouseCords, CL_TRUE, 0, sizeof(double) * 2, MouseCords);
 	queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(window_wh));
-	//queue.enqueueReadBuffer(bufferOutput, CL_TRUE, 0, sizeof(int) * window_wh, output.data());
 	queue.enqueueReadBuffer(bufferOutput, CL_TRUE, 0, sizeof(sf::Uint8) * window_wh * 4, pixels.data());
 
-	//for (int px_num = 0; px_num < window_wh; ++px_num) {
-	//	int ix = px_num % window_w;
-	//	int iy = px_num / window_w;
-
-	//	int i = output[px_num];
-
-	//	int ppos = 4 * (width * iy + ix);
-	//	int iNorm = 0;
-	//	if (i > iterations) {
-	//		pixels[ppos] = 0;
-	//		pixels[ppos + 1] = 0;
-	//		pixels[ppos + 2] = 0;
-	//	} else {
-	//		int scaledI = i * colorDiv;
-	//		iNorm = (int)scaledI % 511;
-	//		iNorm = iNorm <= 255 ? iNorm : 511 - iNorm;
-	//		pixels[ppos] = iNorm;
-	//		pixels[ppos + 1] = 255 - iNorm;
-	//		pixels[ppos + 2] = 255;
-	//	}
-
-	//	pixels[ppos + 3] = 255;
-	//}
-
-	//texture.update(pixels, width, height, 0, 0);
 	texture.update(pixels.data(), width, height, 0, 0);
-	//delete[] pixels;
 	timer("frame done");
 	return texture;
 }
-sf::Texture mandelbrot(int width, int height, double xmin, double xmax, double ymin, double ymax, int iterations) {
-	timer();
-	sf::Texture texture;
-	texture.create(width, height);
-	printf("w: %d, h: %d, prec: %d, powA: %f, colorDiv: %d\n", width, height, GL_precision, powA, colorDiv);
 
-	sf::Uint8* pixels = new sf::Uint8[width * height * 4];
-	std::vector<std::thread> threads;
-
-	double LmouseX = GmouseX;
-	double LmouseY = GmouseY;
-
-	auto computePixel = [&](int ix, int iy) {
-		double x = xmin + (xmax - xmin) * ix / (width - 1.0);
-		double y = ymin + (ymax - ymin) * iy / (height - 1.0);
-
-		int i = 0;
-		switch (textureMode) {
-		case 0:
-			i = mandelIter(x, y, iterations);
-			break;
-		case 1:
-			i = juliaIter(x, y, LmouseX, LmouseY, iterations);
-			break;
-		default:
-			break;
-		}
-
-		int ppos = 4 * (width * iy + ix);
-
-		//int iNorm = (int)(255.0 * (double)i / (double)iterations);
-		//if (iNorm < 0) {
-		//	iNorm = 0;
-		//}
-		//if (iNorm >= 255) {
-		//	iNorm = 255;
-		//	pixels[ppos] = 0;
-		//	pixels[ppos + 1] = 0;
-		//	pixels[ppos + 2] = 0;
-		//} else {
-		//	pixels[ppos] = iNorm;
-		//	pixels[ppos + 1] = 255 - iNorm;
-		//	pixels[ppos + 2] = 255;
-		//}
-
-		int iNorm = 0;
-		if (i > iterations) {
-			pixels[ppos] = 0;
-			pixels[ppos + 1] = 0;
-			pixels[ppos + 2] = 0;
-		} else {
-			int scaledI = i * colorDiv;
-			iNorm = (int)scaledI % 511;
-			iNorm = iNorm <= 255 ? iNorm : 511 - iNorm;
-			pixels[ppos] = iNorm;
-			pixels[ppos + 1] = 255 - iNorm;
-			pixels[ppos + 2] = 255;
-		}
-
-		pixels[ppos + 3] = 255;
-	};
-	auto threadWorker = [&](int startX, int endX) {
-		for (int ix = startX; ix < endX; ix++) {
-			for (int iy = 0; iy < height; iy++) {
-				computePixel(ix, iy);
-			}
-		}
-	};
-	const int threadCount = 16;
-	int remainder = width % threadCount;
-	int threadShare = width / threadCount;
-	int threadStart = 0;
-	for (int i = 0; i < threadCount; i++) {
-		int threadEnd = threadStart + threadShare;
-		threadEnd += (remainder > 0 ? 1 : 0);
-		remainder--;
-		threads.emplace_back(threadWorker, threadStart, threadEnd);
-		threadStart = threadEnd;
-	}
-	for (auto& thread : threads) {
-		thread.join();
-	}
-
-	texture.update(pixels, width, height, 0, 0);
-
-	delete[] pixels;
-	timer("frame done");
-	return texture;
-}
 void resize_window(sf::RenderWindow& window, sf::RenderTexture& rt, const sf::ContextSettings& settings, int w, int h) {
 	window_w = w;
 	window_h = h;
 	window_wh = window_w * window_h;
-	// rt.create(w, h);
 	window.setView(sf::View(sf::FloatRect(0, 0, (float)w, (float)h)));
 }
 void make_window(sf::RenderWindow& window, sf::RenderTexture& rt, const sf::ContextSettings& settings, bool is_fullscreen) {
@@ -420,7 +263,6 @@ void updateXYRange(sf::Vector2i& mousePos, float& delta, double& xmax, double& x
 	}
 
 	printf("cords: %d %d, x:%lf-%lf, y:%lf-%lf\n", mousePos.x, mousePos.y, xmin, xmax, ymin, ymax);
-	// quadmath_snprintf(s, sizeof(s), "%.36Qg", f);
 }
 void fractalExplorer() {
 	printf("started\n");
@@ -459,7 +301,6 @@ void fractalExplorer() {
 	double ymax = oymax;
 	int precision = GL_precision;
 
-	//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 	fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 
 	bool mousePressed = false;
@@ -487,7 +328,6 @@ void fractalExplorer() {
 				} else if (event.mouseButton.button == sf::Mouse::Right) {
 					textureMode = 0;
 					needsReTexute = true;
-					//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				}
 			case sf::Event::MouseMoved:
 				if (mousePressed) {
@@ -502,7 +342,6 @@ void fractalExplorer() {
 					std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
 					textureMode = 1;
 					needsReTexute = true;
-					//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				}
 				break;
 			case sf::Event::Resized:
@@ -510,8 +349,6 @@ void fractalExplorer() {
 				oyRange = (xmax - xmin) * window_h / window_w;
 				ymin = -oyRange / 2;
 				ymax = oyRange / 2;
-				//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
-				//printf("fracW: %d, fracH: %d\n", fracTexture.getSize().x, fracTexture.getSize().y);
 				needsReTexute = true;
 				resized = true;
 				break;
@@ -540,7 +377,6 @@ void fractalExplorer() {
 					colorDiv = colorDiv * 2;
 				}
 				needsReTexute = true;
-				//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				break;
 			case sf::Event::MouseWheelScrolled:
 				sf::Vector2i mousePos = sf::Mouse::getPosition(window);
@@ -548,11 +384,9 @@ void fractalExplorer() {
 				updateXYRange(mousePos, delta, xmax, xmin, ymax, ymin);
 
 				needsReTexute = true;
-				//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				break;
 			}
 			if (needsReTexute) {
-				//fracTexture = mandelbrot(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				if (!resized) {
 					fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 					needsReTexute = false;
