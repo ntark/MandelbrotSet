@@ -249,6 +249,8 @@ void fractalExplorer() {
 	fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 
 	bool mousePressed = false;
+	std::vector<sf::Vertex> linePoints;
+	bool middleMousePressed = false;
 
 	while (window.isOpen()) {
 		sf::Event event;
@@ -257,96 +259,138 @@ void fractalExplorer() {
 		while (window.pollEvent(event)) {
 			bool needsReTexute = false;
 			switch (event.type) {
-			case sf::Event::Closed:
-				window.close();
-				break;
-			case sf::Event::MouseButtonReleased:
-				if (event.mouseButton.button == sf::Mouse::Left) {
-					std::cout << "mouse Released bruh " << mousePressed << "\n";
-					mousePressed = false;
-				}
-				break;
-			case sf::Event::MouseButtonPressed:
-				if (event.mouseButton.button == sf::Mouse::Left) {
-					std::cout << "mouse Pressed bruh " << mousePressed << "\n";
-					mousePressed = true;
-				} else if (event.mouseButton.button == sf::Mouse::Right) {
-					juliaMode = 0;
-					needsReTexute = true;
-				}
-			case sf::Event::MouseMoved:
-				if (mousePressed) {
-					double xrange = xmax - xmin;
-					double yrange = ymax - ymin;
-					sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-					double mouseXpos = mousePos.x / ((double)window_w) * xrange + xmin;
-					double mouseYpos = mousePos.y / ((double)window_h) * yrange + ymin;
-					GmouseX = mouseXpos;
-					GmouseY = mouseYpos;
+				case sf::Event::Closed:
+					window.close();
+					break;
+				case sf::Event::MouseButtonReleased:
+					if (event.mouseButton.button == sf::Mouse::Left) {
+						std::cout << "mouse Released bruh " << mousePressed << "\n";
+						mousePressed = false;
+					} else if (event.mouseButton.button == sf::Mouse::Middle) {
+						middleMousePressed = false;
+					}
+					break;
+				case sf::Event::MouseButtonPressed:
+					if (event.mouseButton.button == sf::Mouse::Left) {
+						std::cout << "mouse Pressed bruh " << mousePressed << "\n";
+						mousePressed = true;
+					} else if (event.mouseButton.button == sf::Mouse::Right) {
+						juliaMode = 0;
+						needsReTexute = true;
+					} else if (event.mouseButton.button == sf::Mouse::Middle) {
+						middleMousePressed = true;
+					}
+				case sf::Event::MouseMoved:
+					if (mousePressed) {
+						double xrange = xmax - xmin;
+						double yrange = ymax - ymin;
+						sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+						double mouseXpos = mousePos.x / ((double)window_w) * xrange + xmin;
+						double mouseYpos = mousePos.y / ((double)window_h) * yrange + ymin;
+						GmouseX = mouseXpos;
+						GmouseY = mouseYpos;
 
-					std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
-					juliaMode = 1;
-					needsReTexute = true;
-				}
-				break;
-			case sf::Event::Resized:
-				resize_window(window, renderTexture, settings, event.size.width, event.size.height);
-				oyRange = (xmax - xmin) * window_h / window_w;
-				ymin = -oyRange / 2;
-				ymax = oyRange / 2;
-				needsReTexute = true;
-				resized = true;
-				break;
-			case sf::Event::KeyReleased:
-				if (event.key.code == sf::Keyboard::Key::Q) {
-					precision = precision != 1 ? precision / 2 : 1;
-					GL_precision = precision;
-				} else if (event.key.code == sf::Keyboard::Key::E) {
-					precision *= 2;
-					GL_precision = precision;
-				} else if (event.key.code == sf::Keyboard::Key::O) {
-					xmin = oxmin;
-					xmax = oxmax;
-					double yRange = (oxmax - oxmin) * window_h / window_w;
+						std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
+						juliaMode = 1;
+						needsReTexute = true;
+					} else if (middleMousePressed && textureMode == 1) {
+						double xrange = xmax - xmin;
+						double yrange = ymax - ymin;
+						sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+						linePoints.clear();
+						linePoints.push_back(sf::Vertex(sf::Vector2f(mousePos.x, mousePos.y)));
+						double cx = mousePos.x / ((double)window_w) * xrange + xmin;
+						double cy = mousePos.y / ((double)window_h) * yrange + ymin;
+						double xd = cx;
+						double yd = cy;
+						for (int line_i = 0; line_i < precision; line_i++) {
+							double nxd = (xd * xd - yd * yd) + cx;
+							double nyd = (2 * xd * yd) + cy;
+							xd = nxd;
+							yd = nyd;
+							double newMouseX = (xd - xmin) * ((double)window_w) / xrange;
+							double newMouseY = (yd - ymin) * ((double)window_h) / yrange;
+							linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
+							linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
+						}
+					}
+					break;
+				case sf::Event::Resized:
+					resize_window(window, renderTexture, settings, event.size.width, event.size.height);
+					oyRange = (xmax - xmin) * window_h / window_w;
 					ymin = -oyRange / 2;
 					ymax = oyRange / 2;
-					precision = 32;
-					colorDiv = 8;
-					GL_precision = precision;
-				} else if (event.key.code == sf::Keyboard::Key::A) {
-					powA -= 0.25;
-				} else if (event.key.code == sf::Keyboard::Key::D) {
-					powA += 0.25;
-				} else if (event.key.code == sf::Keyboard::Key::Z) {
-					colorDiv = colorDiv != 1 ? colorDiv / 2 : 1;
-				} else if (event.key.code == sf::Keyboard::Key::X) {
-					colorDiv = colorDiv * 2;
-				} else if (event.key.code == sf::Keyboard::Num1) {
-					textureMode = 1;
-				} else if (event.key.code == sf::Keyboard::Num2) {
-					textureMode = 2;
-				} else if (event.key.code == sf::Keyboard::Num3) {
-					textureMode = 3;
-				} else if (event.key.code == sf::Keyboard::Num4) {
-					textureMode = 4;
-				} else if (event.key.code == sf::Keyboard::Num5) {
-					textureMode = 5;
-				} else if (event.key.code == sf::Keyboard::Num6) {
-					textureMode = 6;
-				}
-				needsReTexute = true;
-				break;
-			case sf::Event::MouseWheelScrolled:
-				sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-				float delta = event.mouseWheelScroll.delta;
-				updateXYRange(mousePos, delta, xmax, xmin, ymax, ymin);
+					needsReTexute = true;
+					resized = true;
+					break;
+				case sf::Event::KeyReleased:
+					switch (event.key.code) {
+						case sf::Keyboard::Key::Q:
+							precision = precision != 1 ? precision / 2 : 1;
+							GL_precision = precision;
+							break;
+						case sf::Keyboard::Key::E:
+							precision *= 2;
+							GL_precision = precision;
+							break;
+						case sf::Keyboard::Key::O:
+							xmin = oxmin;
+							xmax = oxmax;
+							ymin = -oyRange / 2;
+							ymax = oyRange / 2;
+							precision = 32;
+							colorDiv = 8;
+							GL_precision = precision;
+							linePoints.clear();
+							break;
+						case sf::Keyboard::Key::A:
+							powA -= 0.25;
+							break;
+						case sf::Keyboard::Key::D:
+							powA += 0.25;
+							break;
+						case sf::Keyboard::Key::Z:
+							colorDiv = colorDiv != 1 ? colorDiv / 2 : 1;
+							break;
+						case sf::Keyboard::Key::X:
+							colorDiv = colorDiv * 2;
+							break;
+						case sf::Keyboard::Num1:
+							textureMode = 1;
+							break;
+						case sf::Keyboard::Num2:
+							textureMode = 2;
+							break;
+						case sf::Keyboard::Num3:
+							textureMode = 3;
+							break;
+						case sf::Keyboard::Num4:
+							textureMode = 4;
+							break;
+						case sf::Keyboard::Num5:
+							textureMode = 5;
+							break;
+						case sf::Keyboard::Num6:
+							textureMode = 6;
+							break;
+						case sf::Keyboard::Num0:
+							resized = true;
+							break;
+					}
+					needsReTexute = true;
+					break;
+				case sf::Event::MouseWheelScrolled:
+					sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+					float delta = event.mouseWheelScroll.delta;
+					updateXYRange(mousePos, delta, xmax, xmin, ymax, ymin);
 
-				needsReTexute = true;
-				break;
+					needsReTexute = true;
+					break;
 			}
 			if (needsReTexute && !resized) {
 				fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 				needsReTexute = false;
+				linePoints.clear();
 			}
 		}
 		zoomBorder.setPosition(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y);
@@ -356,6 +400,7 @@ void fractalExplorer() {
 			fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 			mainSprite.setTexture(fracTexture, 1);
 			resized = false;
+			linePoints.clear();
 		} else {
 			mainSprite.setTexture(fracTexture);
 		}
@@ -364,6 +409,7 @@ void fractalExplorer() {
 
 		window.draw(mainSprite);
 		window.draw(zoomBorder);
+		window.draw(linePoints.data(), linePoints.size(), sf::Lines);
 		window.display();
 	}
 }

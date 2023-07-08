@@ -30,7 +30,7 @@ __kernel void fractalSet(__global const double* input_X,
 	double y2;
 
 		
-	if(juliaMode){
+	if (juliaMode) {
 		x = input_X[indx_X];
 		y = input_Y[indx_Y];
 		nx = 0.0;
@@ -43,8 +43,8 @@ __kernel void fractalSet(__global const double* input_X,
 		cx = input_X[indx_X];
 		cy = input_Y[indx_Y];
 	}
-	if(textureMode == 1) {											// mandel set
-		while(i-- && ((x2 = x*x) + (y2 = y*y) <= threshold)){
+	if (textureMode == 1) {											// mandel set
+		while(i-- && ((x2 = x*x) + (y2 = y*y) <= threshold)) {
 			nx = (x2 - y2) + cx;
 			y = (2 * x * y) + cy;
 			x = nx;
@@ -61,12 +61,16 @@ __kernel void fractalSet(__global const double* input_X,
 			y = (powA * x * y) + cy;
 			x = nx;
 		}
-	} else if(textureMode == 4) {									// mandel compare
+	} else if (textureMode == 4) {									// spinner
+		while (i-- && ((x2 = x * x) + (y2 = y * y) <= threshold)) {
+			nx = (x2 - y2) + cx;
+			x = (2.0 * y * x) + cy;
+			y = nx;
+		}
+	} else if (textureMode == 5) {									// mandel compare
 
-	} else if(textureMode == 5) {									// mandel compare
-
-	} else if(textureMode == 9) {									// mandel old
-		while(i-- && (x*x + y*y <= 5)){
+	} else if (textureMode == 9) {									// mandel old
+		while(i-- && (x*x + y*y <= 5)) {
 			nx = (x*x - y*y) + cx;
 			y = (2 * x * y) + cy;
 			x = nx;
