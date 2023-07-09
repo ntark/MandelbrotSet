@@ -24,6 +24,7 @@ __kernel void fractalSet(__global const double* input_X,
 	double x;
 	double y;
 	double nx;
+	double ny;
 	double cx;
 	double cy;
 	double x2;
@@ -67,8 +68,8 @@ __kernel void fractalSet(__global const double* input_X,
 			x = (2.0 * y * x) + cy;
 			y = nx;
 		}
-	} else if (textureMode == 5) {									// mandel compare
-
+	} else if (textureMode == 5) {									// zinus
+		i = (int)((sin(cx - x) + 1.0) * (sin(cy - y) + 1.0) * maxIter);
 	} else if (textureMode == 9) {									// mandel old
 		while(i-- && (x*x + y*y <= 5)) {
 			nx = (x*x - y*y) + cx;
@@ -86,7 +87,7 @@ __kernel void fractalSet(__global const double* input_X,
 	} else {
 		int scaledI = i * colorDiv;
 		iNorm = (int)scaledI % 511;
-		iNorm = iNorm <= 255 ? iNorm : 511 - iNorm;
+		iNorm = iNorm <= 255 ? iNorm : (511 - iNorm);
 		output[4 * indx + 0] = iNorm;
 		output[4 * indx + 1] = 255 - iNorm;
 		output[4 * indx + 2] = 255;			

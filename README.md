@@ -9,6 +9,7 @@ Simple-ish application using SFML and OpenCL to display mandelbrot set
 \
 0 - reload shader\
 Click / Drag - Julia set\
+Middle Click / Drag - Complex variable iteration steps\
 
 ## controlls
 Scroll - Zoom In/Out\
@@ -19,5 +20,5 @@ O - Reset View\
 A / D - Adjust mandle -+ 0.5 in 2 * x * y\
 
 ## 
-inspired by https://github.com/maxmmyron/mandelbrot-visualizer
+inspired by https://github.com/maxmmyron/mandelbrot-visualizer \
 and https://github.com/HackerPoet/FractalSoundExplorer
