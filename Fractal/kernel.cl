@@ -1,3 +1,28 @@
+float N21(float idx, float idy) {
+	float v = (sin(idx * 100.0 + idy * 6574.0) + 1.0) * 5674;
+	v = v - floor(v);
+	return v;
+}
+float SmoothNoise(float cx, float cy) {
+	float lvx = (cx * 10.) - floor(cx * 10.);
+	float lvy = (cy * 10.) - floor(cy * 10.);
+
+	float idx = floor(cx * 10.);
+	float idy = floor(cy * 10.);
+
+	lvx = lvx * lvx * (3. - 2. * lvx);
+	lvy = lvy * lvy * (3. - 2. * lvy);
+
+	float bl = N21(idx, idy);
+	float br = N21(idx + 1., idy);
+	float b = mix(bl, br, lvx);
+
+	float tl = N21(idx, idy + 1.);
+	float tr = N21(idx + 1., idy + 1.);
+	float t = mix(tl, tr, lvx);
+	
+	return mix(b, t, lvy);
+}
 __kernel void fractalSet(__global const double* input_X,
                         __global const double* input_Y,
                         __global const int* options,
@@ -68,8 +93,20 @@ __kernel void fractalSet(__global const double* input_X,
 			x = (2.0 * y * x) + cy;
 			y = nx;
 		}
-	} else if (textureMode == 5) {									// zinus
-		i = (int)((sin(cx - x) + 1.0) * (sin(cy - y) + 1.0) * maxIter);
+	} else if (textureMode == 5) {									// random noise
+		float c = SmoothNoise(cx, cy);
+		c += SmoothNoise(cx * 2., cy * 2.) * .5;
+		c += SmoothNoise(cx * 4., cy * 4.) * .25;
+		c += SmoothNoise(cx * 8., cy * 8.) * .125;
+		c += SmoothNoise(cx * 16., cy * 16.) * .0625;
+
+		c /= 2.0;
+		i = (int)(c * maxIter);
+
+	} else if (textureMode == 6) {									// metlaxi
+		double vx = (sin(cx) + 1.0) / 2.0;
+		double vy = (sin(cy) + 1.0) / 2.0;
+		i = (int)(sqrt((vx * vx  + vy * vy) * .5) * maxIter);
 	} else if (textureMode == 9) {									// mandel old
 		while(i-- && (x*x + y*y <= 5)) {
 			nx = (x*x - y*y) + cx;

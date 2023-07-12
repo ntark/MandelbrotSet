@@ -14,8 +14,12 @@ static const int target_fps = 60;
 //static const int window_h_init = 720;
 static const int window_w_init = 300;
 static const int window_h_init = 300;
-static const char window_name[] = "windoww";
+static const char window_name[] = "amogis";
 static const int Kernel_Option_Num = 6;
+static const int START_PREC = 32;
+static const double START_X_MIN = -2.4;
+static const double START_X_MAX = 1.0;
+static const bool PRINTING = true;
 
 static const double ZoomFactor = 0.7;
 
@@ -24,7 +28,6 @@ static int window_h = window_h_init;
 static int window_wh = window_w * window_h;
 float powA = 2.0f;
 int colorDiv = 8;
-int GL_precision = 32;
 
 int textureMode = 1; // 1 - mandel , 2 - ship
 int juliaMode = 0; // 0 - default , 1 - julia
@@ -45,6 +48,9 @@ std::chrono::steady_clock::time_point tmr;
 cl::CommandQueue queue;
 std::string kernelSourceFromFile = "";
 void timer(std::string p = "") {
+	if (!PRINTING) {
+		return;
+	}
 	std::chrono::steady_clock::time_point tmp = std::chrono::steady_clock::now();
 	if ((tmr != empt) && (p != "")) {
 		std::cout << p << " time = " << std::chrono::duration_cast<std::chrono::microseconds>(tmp - tmr).count() / 1000.0 << "[ms]" << std::endl; // µ
@@ -101,6 +107,7 @@ void OpenCL_setup() {
 
 	// Select the first platform
 	cl::Platform platform = platforms[0];
+	std::cout << "platform num: " << platforms.size() << '\n';
 
 	// Get available devices
 	std::vector<cl::Device> devices;
@@ -125,7 +132,8 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	timer();
 	sf::Texture texture;
 	texture.create(width, height);
-	printf("w: %d, h: %d, prec: %d, powA: %f, colorDiv: %d\n", width, height, GL_precision, powA, colorDiv);
+	if(PRINTING)
+		printf("w: %d, h: %d, prec: %d, powA: %f, colorDiv: %d\n", width, height, iterations, powA, colorDiv);
 
 	//sf::Uint8* pixels = new sf::Uint8[width * height * 4];
 	std::vector<sf::Uint8> pixels(window_wh * 4);
@@ -141,6 +149,7 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 		double y = ymin + (ymax - ymin) * i / (height - 1.0);
 		input_Y[i] = y;
 	}
+
 	int* Kernel_Options = new int[Kernel_Option_Num]; // 0: iterations, 1: window_w, 2: colorDiv, 3: julia?, 4: texuteMode
 	Kernel_Options[0] = iterations;
 	Kernel_Options[1] = window_w;
@@ -207,7 +216,8 @@ void updateXYRange(sf::Vector2i& mousePos, float& delta, double& xmax, double& x
 		ymax = ymax - (ymax - mouseYpos) * (1.0 - ZoomFactor);
 	}
 
-	printf("cords: %d %d, x:%lf-%lf, y:%lf-%lf\n", mousePos.x, mousePos.y, xmin, xmax, ymin, ymax);
+	if (PRINTING)
+		printf("cords: %d %d, x:%lf-%lf, y:%lf-%lf\n", mousePos.x, mousePos.y, xmin, xmax, ymin, ymax);
 }
 void fractalExplorer() {
 	printf("started\n");
@@ -234,17 +244,15 @@ void fractalExplorer() {
 	sf::Sprite mainSprite;
 	sf::Texture fracTexture;
 
-	const double oxmin = -2.4;
-	const double oxmax = 1.0;
-	double oyRange = (oxmax - oxmin) * window_h / window_w;
+	double oyRange = (START_X_MAX - START_X_MIN) * window_h / window_w;
 	double oymin = -oyRange / 2;
 	double oymax = oyRange / 2;
 
-	double xmin = oxmin;
-	double xmax = oxmax;
+	double xmin = START_X_MIN;
+	double xmax = START_X_MAX;
 	double ymin = oymin;
 	double ymax = oymax;
-	int precision = GL_precision;
+	int precision = START_PREC;
 
 	fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
 
@@ -256,15 +264,18 @@ void fractalExplorer() {
 		sf::Event event;
 		bool resized = false;
 
+		bool needsReTexute = false;
+		bool drawLines = false;
+
 		while (window.pollEvent(event)) {
-			bool needsReTexute = false;
 			switch (event.type) {
 				case sf::Event::Closed:
 					window.close();
 					break;
 				case sf::Event::MouseButtonReleased:
 					if (event.mouseButton.button == sf::Mouse::Left) {
-						std::cout << "mouse Released bruh " << mousePressed << "\n";
+						if (PRINTING)
+							std::cout << "mouse Released bruh " << mousePressed << "\n";
 						mousePressed = false;
 					} else if (event.mouseButton.button == sf::Mouse::Middle) {
 						middleMousePressed = false;
@@ -272,7 +283,8 @@ void fractalExplorer() {
 					break;
 				case sf::Event::MouseButtonPressed:
 					if (event.mouseButton.button == sf::Mouse::Left) {
-						std::cout << "mouse Pressed bruh " << mousePressed << "\n";
+						if (PRINTING)
+							std::cout << "mouse Pressed bruh " << mousePressed << "\n";
 						mousePressed = true;
 					} else if (event.mouseButton.button == sf::Mouse::Right) {
 						juliaMode = 0;
@@ -290,29 +302,12 @@ void fractalExplorer() {
 						GmouseX = mouseXpos;
 						GmouseY = mouseYpos;
 
-						std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
+						if (PRINTING)
+							std::cout << "moved x: " << GmouseX << ", y: " << GmouseY << "\n";
 						juliaMode = 1;
 						needsReTexute = true;
 					} else if (middleMousePressed && textureMode == 1) {
-						double xrange = xmax - xmin;
-						double yrange = ymax - ymin;
-						sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-						linePoints.clear();
-						linePoints.push_back(sf::Vertex(sf::Vector2f(mousePos.x, mousePos.y)));
-						double cx = mousePos.x / ((double)window_w) * xrange + xmin;
-						double cy = mousePos.y / ((double)window_h) * yrange + ymin;
-						double xd = cx;
-						double yd = cy;
-						for (int line_i = 0; line_i < precision; line_i++) {
-							double nxd = (xd * xd - yd * yd) + cx;
-							double nyd = (2 * xd * yd) + cy;
-							xd = nxd;
-							yd = nyd;
-							double newMouseX = (xd - xmin) * ((double)window_w) / xrange;
-							double newMouseY = (yd - ymin) * ((double)window_h) / yrange;
-							linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
-							linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
-						}
+						drawLines = true;
 					}
 					break;
 				case sf::Event::Resized:
@@ -327,20 +322,18 @@ void fractalExplorer() {
 					switch (event.key.code) {
 						case sf::Keyboard::Key::Q:
 							precision = precision != 1 ? precision / 2 : 1;
-							GL_precision = precision;
 							break;
 						case sf::Keyboard::Key::E:
 							precision *= 2;
-							GL_precision = precision;
 							break;
 						case sf::Keyboard::Key::O:
-							xmin = oxmin;
-							xmax = oxmax;
-							ymin = -oyRange / 2;
-							ymax = oyRange / 2;
+							xmin = START_X_MIN;
+							xmax = START_X_MAX;
+							oyRange = (xmax - xmin) * window_h / window_w;
+							ymin = -oyRange / 2.;
+							ymax = oyRange / 2.;
 							precision = 32;
 							colorDiv = 8;
-							GL_precision = precision;
 							linePoints.clear();
 							break;
 						case sf::Keyboard::Key::A:
@@ -387,13 +380,34 @@ void fractalExplorer() {
 					needsReTexute = true;
 					break;
 			}
-			if (needsReTexute && !resized) {
-				fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
-				needsReTexute = false;
-				linePoints.clear();
-			}
 		}
-		zoomBorder.setPosition(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y);
+		if (needsReTexute && !resized) {
+			fracTexture = mandelbrotOpenCL(window_w, window_h, xmin, xmax, ymin, ymax, precision);
+			needsReTexute = false;
+			linePoints.clear();
+		}
+		if (drawLines) {
+			double xrange = xmax - xmin;
+			double yrange = ymax - ymin;
+			sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+			linePoints.clear();
+			linePoints.push_back(sf::Vertex(sf::Vector2f(mousePos.x, mousePos.y)));
+			double cx = mousePos.x / ((double)window_w) * xrange + xmin;
+			double cy = mousePos.y / ((double)window_h) * yrange + ymin;
+			double xd = cx;
+			double yd = cy;
+			for (int line_i = 0; line_i < precision; line_i++) {
+				double nxd = (xd * xd - yd * yd) + cx;
+				double nyd = (2 * xd * yd) + cy;
+				xd = nxd;
+				yd = nyd;
+				double newMouseX = (xd - xmin) * ((double)window_w) / xrange;
+				double newMouseY = (yd - ymin) * ((double)window_h) / yrange;
+				linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
+				linePoints.push_back(sf::Vertex(sf::Vector2f(newMouseX, newMouseY)));
+			}
+			drawLines = false;
+		}
 		if (resized) {
 			OpenCL_Buffer_Setup();
 			//OpenCL_setup();
@@ -405,6 +419,7 @@ void fractalExplorer() {
 			mainSprite.setTexture(fracTexture);
 		}
 
+		zoomBorder.setPosition(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y);
 		window.clear(sf::Color::Green);
 
 		window.draw(mainSprite);

@@ -6,6 +6,8 @@ Simple-ish application using SFML and OpenCL to display mandelbrot set
 2 - burning ship set\
 3 - adjustable mandel set\
 4 - spinner set\
+5 - noise\
+6 - metlaxi\
 \
 0 - reload shader\
 Click / Drag - Julia set\
