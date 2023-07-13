@@ -15,10 +15,11 @@ static const int target_fps = 60;
 static const int window_w_init = 300;
 static const int window_h_init = 300;
 static const char window_name[] = "amogis";
-static const int Kernel_Option_Num = 6;
+static const int Kernel_Option_Num = 7;
 static const int START_PREC = 32;
 static const double START_X_MIN = -2.4;
 static const double START_X_MAX = 1.0;
+static const int START_COLOR_DIV = 32;
 static const bool PRINTING = true;
 
 static const double ZoomFactor = 0.7;
@@ -27,8 +28,9 @@ static int window_w = window_w_init;
 static int window_h = window_h_init;
 static int window_wh = window_w * window_h;
 float powA = 2.0f;
-int colorDiv = 8;
+int colorDiv = START_COLOR_DIV;
 
+int colorPaletteNum = 0; // 0 - default, 1 - cyan / mag, 2 - brown / white, 3 - cyan / mag / yel
 int textureMode = 1; // 1 - mandel , 2 - ship
 int juliaMode = 0; // 0 - default , 1 - julia
 double GmouseX = 0.0;
@@ -89,6 +91,9 @@ void OpenCL_Buffer_Setup() {
 	cl::Program program(context, kernelSourceFromFile);
 	// Build the program
 	program.build({ device });
+	std::string buildLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+	std::cerr << buildLog << std::endl;
+	
 
 	// Create the kernel
 	kernel = cl::Kernel(program, "fractalSet");
@@ -133,7 +138,7 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	sf::Texture texture;
 	texture.create(width, height);
 	if(PRINTING)
-		printf("w: %d, h: %d, prec: %d, powA: %f, colorDiv: %d\n", width, height, iterations, powA, colorDiv);
+		printf("w: %d, h: %d, prec: %d, powA: %f, colorDiv: %d, palette: %d\n", width, height, iterations, powA, colorDiv, colorPaletteNum);
 
 	//sf::Uint8* pixels = new sf::Uint8[width * height * 4];
 	std::vector<sf::Uint8> pixels(window_wh * 4);
@@ -157,6 +162,7 @@ sf::Texture mandelbrotOpenCL(int width, int height, double xmin, double xmax, do
 	Kernel_Options[3] = juliaMode;
 	Kernel_Options[4] = textureMode;
 	Kernel_Options[5] = *(int*)&powA;
+	Kernel_Options[6] = colorPaletteNum;
 
 	double* MouseCords = new double[2];
 	MouseCords[0] = GmouseX;
@@ -197,7 +203,7 @@ void make_window(sf::RenderWindow& window, sf::RenderTexture& rt, const sf::Cont
 	window.setKeyRepeatEnabled(false);
 	window.requestFocus();
 }
-void updateXYRange(sf::Vector2i& mousePos, float& delta, double& xmax, double& xmin, double& ymax, double& ymin) {
+void updateXYRange(sf::Vector2i mousePos, float& delta, double& xmax, double& xmin, double& ymax, double& ymin) {
 	double xrange = xmax - xmin;
 	double yrange = ymax - ymin;
 
@@ -318,6 +324,10 @@ void fractalExplorer() {
 					needsReTexute = true;
 					resized = true;
 					break;
+				case sf::Event::MouseWheelScrolled:
+					updateXYRange(sf::Mouse::getPosition(window), event.mouseWheelScroll.delta, xmax, xmin, ymax, ymin);
+					needsReTexute = true;
+					break;
 				case sf::Event::KeyReleased:
 					switch (event.key.code) {
 						case sf::Keyboard::Key::Q:
@@ -333,7 +343,7 @@ void fractalExplorer() {
 							ymin = -oyRange / 2.;
 							ymax = oyRange / 2.;
 							precision = 32;
-							colorDiv = 8;
+							colorDiv = START_COLOR_DIV;
 							linePoints.clear();
 							break;
 						case sf::Keyboard::Key::A:
@@ -369,14 +379,31 @@ void fractalExplorer() {
 						case sf::Keyboard::Num0:
 							resized = true;
 							break;
+						case sf::Keyboard::Numpad0:
+							colorPaletteNum = 0;
+							break;
+						case sf::Keyboard::Numpad1:
+							colorPaletteNum = 1;
+							break;
+						case sf::Keyboard::Numpad2:
+							colorPaletteNum = 2;
+							break;
+						case sf::Keyboard::Numpad3:
+							colorPaletteNum = 3;
+							break;
+						case sf::Keyboard::Numpad4:
+							colorPaletteNum = 4;
+							break;
+						case sf::Keyboard::Numpad5:
+							colorPaletteNum = 5;
+							break;
+						case sf::Keyboard::Numpad6:
+							colorPaletteNum = 6;
+							break;
+						case sf::Keyboard::Numpad7:
+							colorPaletteNum = 7;
+							break;
 					}
-					needsReTexute = true;
-					break;
-				case sf::Event::MouseWheelScrolled:
-					sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-					float delta = event.mouseWheelScroll.delta;
-					updateXYRange(mousePos, delta, xmax, xmin, ymax, ymin);
-
 					needsReTexute = true;
 					break;
 			}

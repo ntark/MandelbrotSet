@@ -4,14 +4,17 @@ float N21(float idx, float idy) {
 	return v;
 }
 float SmoothNoise(float cx, float cy) {
-	float lvx = (cx * 10.) - floor(cx * 10.);
-	float lvy = (cy * 10.) - floor(cy * 10.);
+	float scaleFactor = 5.;
+	float lvx = (cx * scaleFactor) - floor(cx * scaleFactor);
+	float lvy = (cy * scaleFactor) - floor(cy * scaleFactor);
 
-	float idx = floor(cx * 10.);
-	float idy = floor(cy * 10.);
+	float idx = floor(cx * scaleFactor);
+	float idy = floor(cy * scaleFactor);
 
 	lvx = lvx * lvx * (3. - 2. * lvx);
 	lvy = lvy * lvy * (3. - 2. * lvy);
+	//lvx = lvx * lvx * (3. - 3. * lvx);
+	//lvy = lvy * lvy * (3. - 3. * lvy);
 
 	float bl = N21(idx, idy);
 	float br = N21(idx + 1., idy);
@@ -23,6 +26,128 @@ float SmoothNoise(float cx, float cy) {
 	
 	return mix(b, t, lvy);
 }
+uchar3 cyanToMagPaletteDefault(float v) {
+	uchar3 col = (uchar3)(255 * v, 255 * (1 - v), 255);
+	return col;
+}
+uchar3 cyanToMagPalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(0.5f, 0.5f, 0.5f);
+	float3 d = (float3)(0.5, 0.17, 0.83);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 brownToWhitePalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(1.0f, 1.0f, 1.0f);
+	float3 d = (float3)(0.00, 0.10, 0.20);
+	
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3) ((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 cyanMagYelPalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(2.0, 1.0, 0.0);
+	float3 d = (float3)(0.50, 0.20, 0.25);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 pinkLimePalette(float v) {
+	float3 a = (float3)(0.8, 0.5, 0.4);
+	float3 b = (float3)(0.2, 0.4, 0.2);
+	float3 c = (float3)(2.0, 1.0, 1.0);
+	float3 d = (float3)(0.00, 0.25, 0.25);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 blueGoldPalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(1.0, 0.7, 0.4);
+	float3 d = (float3)(0.00, 0.15, 0.20);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 rainbowPalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(1.0, 1.0, 1.0);
+	float3 d = (float3)(0.00, 0.33, 0.67);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+uchar3 testPalette(float v) {
+	float3 a = (float3)(0.5f, 0.5f, 0.5f);
+	float3 b = (float3)(0.5f, 0.5f, 0.5f);
+	float3 c = (float3)(0.5f, 0.5f, 0.5f);
+	float3 d = (float3)(0.5, 0.17, 0.83);
+
+	float3 colf = a + b * cos(6.2831853f * (c * v + d));
+	colf = colf * 255.f;
+	uchar3 col = (uchar3)((uchar)colf.x, (uchar)colf.y, (uchar)colf.z);
+	return col;
+}
+
+uchar3 paletteCaller(int maxIter, int i, int colorDiv, int colorPaletteNum) {
+	uchar3 col = (uchar3)(0, 0, 0);
+	int iNorm = 0;
+	if (i < maxIter) {
+		iNorm = i % (colorDiv * 2);
+		iNorm = iNorm < colorDiv ? iNorm : 2 * colorDiv - iNorm;
+
+		switch (colorPaletteNum)
+		{
+			case 0:
+				col = cyanToMagPaletteDefault(iNorm/ (float)colorDiv);
+				break;
+			case 1:
+				col = cyanToMagPalette(iNorm/ (float)colorDiv);
+				break;
+			case 2:
+				col = brownToWhitePalette(iNorm/ (float)colorDiv);
+				break;
+			case 3:
+				col = cyanMagYelPalette(iNorm/ (float)colorDiv);
+				break;
+			case 4:
+				col = pinkLimePalette(iNorm/ (float)colorDiv);
+				break;
+			case 5:
+				col = blueGoldPalette(iNorm/ (float)colorDiv);
+				break;
+			case 6:
+				col = rainbowPalette(iNorm/ (float)colorDiv);
+				break;
+			case 7:
+				col = testPalette(iNorm/ (float)colorDiv);
+				break;
+			default:
+				break;
+		}
+	}
+	return col;
+}
+
 __kernel void fractalSet(__global const double* input_X,
                         __global const double* input_Y,
                         __global const int* options,
@@ -39,6 +164,7 @@ __kernel void fractalSet(__global const double* input_X,
 	int textureMode = options[4];
 	int powAInt = options[5];
 	float powA = *(float*) &powAInt;
+	int colorPaletteNum = options[6];
 
 	int indx_X = indx % size_X;
 	int indx_Y = indx / size_X;
@@ -114,20 +240,12 @@ __kernel void fractalSet(__global const double* input_X,
 			x = nx;
 		}
 	}
+	
+	i = maxIter - i - 1;
+	uchar3 col = paletteCaller(maxIter, i, colorDiv, colorPaletteNum);
 
-	i = maxIter - i;
-	int iNorm = 0;
-	if (i > maxIter) {
-		output[4 * indx] = 0;
-		output[4 * indx + 1] = 0;
-		output[4 * indx + 2] = 0;
-	} else {
-		int scaledI = i * colorDiv;
-		iNorm = (int)scaledI % 511;
-		iNorm = iNorm <= 255 ? iNorm : (511 - iNorm);
-		output[4 * indx + 0] = iNorm;
-		output[4 * indx + 1] = 255 - iNorm;
-		output[4 * indx + 2] = 255;			
-	}
+	output[4 * indx + 0] = col.x;
+	output[4 * indx + 1] = col.y;
+	output[4 * indx + 2] = col.z;
 	output[4 * indx + 3] = 255;
 }

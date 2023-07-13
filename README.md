@@ -21,6 +21,15 @@ Z / X - Decrease / Increase Color Divisions\
 O - Reset View\
 A / D - Adjust mandle -+ 0.5 in 2 * x * y\
 
+## palettes
+0 - cyan - pink\
+1 - cyan - magenta\
+2 - brown - blue - white\
+3 - cyan - magenta - yellow\
+4 - pink - lime\
+5 - blue - gold\
+6 - rainbow\
+
 ## 
 inspired by https://github.com/maxmmyron/mandelbrot-visualizer \
 and https://github.com/HackerPoet/FractalSoundExplorer
